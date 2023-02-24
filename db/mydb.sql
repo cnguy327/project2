@@ -1,5 +1,5 @@
 
-create table Person (
+create table Registrations (
   person_id integer primary key AUTO_INCREMENT,
   firstName varchar(30),
   lastName varchar(30),
