@@ -1,101 +1,64 @@
-let express = require("express");
-var bodyParser = require("body-parser");
+const express = require('express');
+const path = require('path');
+const favicon = require('serve-favicon');
+const logger = require('morgan');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+const expressHbs = require('express-handlebars');
+const session = require('express-session');
+const flash = require('connect-flash');
+const { check, validationResult }  = require('express-validator');
+const routes = require('./routes/index');
 
-let mysql = require("mysql");
+const app = express();
 
-let dbhost = process.env["DBHOST"] || "localhost";
-let dbPass = process.env["MYSQL_PASSWORD"] || "mysql";
+// view engine setup
+app.engine('.hbs', expressHbs({defaultLayout: 'main'}));
 
-function getConnection() {
-  return mysql.createConnection({
-    host: dbhost,
-    port: 3306,
-    user: "mysql",
-    password: dbPass,
-    database: "mydb",
+app.set('view engine', '.hbs');
+
+// uncomment after placing your favicon in /public
+//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(session({secret: 'mysupersecret', resave: false, saveUninitialized: false}));
+app.use(flash());
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use('/', routes);
+
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  var err = new Error('Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// error handlers
+
+// development error handler
+// will print stacktrace
+if (app.get('env') === 'development') {
+  app.use(function(err, req, res, next) {
+    res.status(err.status || 500);
+    res.render('error', {
+      message: err.message,
+      error: err
+    });
   });
 }
 
-let app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-
-app.post("/registrations", function (req, res) {
-  let { firstName, lastName, grade, email, shirtSize, hrUsername } = req.body;
-
-  if (
-    !firstName ||
-    !lastName ||
-    !grade ||
-    !email ||
-    !shirtSize ||
-    !hrUsername
-  ) {
-    return res.status(400).json({ error: "All fields must be nonblank." });
-  }
-
-  if (!["S", "M", "L"].includes(shirtSize)) {
-    // shirtSize must be S, M, or L
-    return res.status(400).json({ error: "Shirt size must be S, M, or L." });
-  }
-
-  if (![9, 10, 11, 12].includes(parseInt(grade))) {
-    // grade should be 9, 10, 11, or 12
-    return res.status(400).json({ error: "Grade must be 9, 10, 11, or 12." });
-  }
-
-  let connection = getConnection();
-  connection.connect(function (err) {
-    if (err) {
-      console.log("Problem connecting to database", err);
-      res.status(500).send("Unable to connect to database! " + err);
-      return;
-    }
-
-    let registration = {
-      firstName,
-      lastName,
-      grade,
-      email,
-      shirtSize,
-      hrUsername,
-    };
-
-    let sql_query = "INSERT INTO Registrations SET ?";
-
-    connection.query(sql_query, registration, function (err) {
-      if (err) {
-        console.log("Problem inserting registration", err);
-        res.status(500).send("Unable to insert registration! " + err);
-        return;
-      }
-      res.status(200).send("Registration success!");
-      connection.destroy();
-    });
+// production error handler
+// no stacktraces leaked to user
+app.use(function(err, req, res, next) {
+  res.status(err.status || 500);
+  res.render('error', {
+    message: err.message,
+    error: {}
   });
 });
 
-app.get("/registrations", function (req, res) {
-  let connection = getConnection();
-  connection.connect(function (err) {
-    if (err) {
-      console.log("Problem connecting to database", err);
-      res.status(500).send("Unable to connect to database! " + err);
-      return;
-    }
-    connection.query("SELECT * FROM Registrations", function (err, results) {
-      if (err) {
-        console.log("Problem getting registrations", err);
-        res.status(500).send("Unable to get registrations! " + err);
-        return;
-      }
-      res.json(results); // JSON response of all registration records
-      connection.destroy();
-    });
-  });
-});
 
-let port = process.env["PORT"] || 8888;
-port = parseInt(port);
-app.listen(port, function () {
-  console.log("Express server listening on port " + port);
-});
+module.exports = app;
