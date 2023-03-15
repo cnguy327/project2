@@ -22,7 +22,6 @@ services:
     image: "node:13"
     container_name: app1
     working_dir: /app
-    user: "1000:1000"
     restart: "no"
     volumes:
       - ./webapp:/app
